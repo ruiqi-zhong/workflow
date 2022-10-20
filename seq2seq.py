@@ -86,12 +86,11 @@ if __name__ == '__main__':
 
     model = AutoModelForSeq2SeqLM.from_pretrained(model_init_path)
 
-    # only finetune the bias and norm layers
-    # fit_bit(model)
-
     # parallelize across devices via device placement
     parallelize_across_device(model)
 
+    # only finetune the bias and norm layers
+    # fit_bit(model)
     # the below lines print reasonable results
     # for name, parameters in model.named_parameters():
     #     print(name, parameters.shape, parameters.device, parameters.requires_grad)
@@ -134,10 +133,12 @@ if __name__ == '__main__':
 
     # inference
     test_prompts = [d['prompt'] for d in test]
+    demonstrations = [d['completion'] for d in test]
+
     sampled_results = sample_batched(model_tokenizer, test_prompts, temperature=args.temperature, n=args.n_samples, bsize=args.eval_batch_size)
     hyp_str = 'temperature=%.2f_n=%d' % (args.temperature, args.n_samples)
     all_results = []
-    for prompt, generations in sampled_results.items():
-        d = {'prompt': prompt, 'generations': generations}
+    for (prompt, generations), demonstration in zip(sampled_results.items(), demonstrations):
+        d = {'prompt': prompt, 'generations': generations, 'demonstration': demonstration}
         all_results.append(d)
     json.dump(all_results, open(training_run_name + '/eval_generations-%s.json' % hyp_str, 'w'))
