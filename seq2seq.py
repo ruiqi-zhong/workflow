@@ -118,5 +118,9 @@ if __name__ == '__main__':
     trainer.train()
 
     test_prompts = [d['prompt'] for d in test]
-    sampled_results = sample_batched(model_tokenizer, test_prompts, temperature=args.temperature, n=args.n_sample, bsize=args.eval_batch_size)
-    print(sampled_results)
+    sampled_results = sample_batched(model_tokenizer, test_prompts, temperature=args.temperature, n=args.n_samples, bsize=args.eval_batch_size)
+    all_results = []
+    for prompt, generations in sampled_results.items():
+        d = {'prompt': prompt, 'generations': generations}
+        all_results.append(d)
+    json.dump(all_results, open(training_run_name + '/eval_generations.json', 'w'))

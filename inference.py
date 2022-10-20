@@ -20,14 +20,12 @@ def sample_batched(
     max_source_length=1024, max_target_length=512, save_score_tok_idx=None, verbose=True, stop_strs=None):
     model, tokenizer = model_tokenizer
     prompts_inflated = []
-    print(len(prompts))
 
     if stop_strs is None:
         stop_strs = []
     for prompt in prompts:
         prompts_inflated.extend([prompt] * n)
     all_completions, all_first_scores = [], []
-    print(len(prompts_inflated))
 
     if save_score_tok_idx is None:
         save_score_tok_idx = [150, 4273]
@@ -35,7 +33,6 @@ def sample_batched(
     with torch.no_grad():
         model.eval()
         num_batches = (len(prompts_inflated) - 1) // bsize + 1
-        print(num_batches)
         if verbose:
             pbar = trange(num_batches)
             pbar.set_description('inference')
