@@ -55,6 +55,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_steps', type=int, default=1000)
     parser.add_argument('--temperature', type=float, default=0.8)
     parser.add_argument('--n_samples', type=int, default=8)
+    parser.add_argument('--no_train', action='store_true')
 
     args, unknown = parser.parse_known_args()
     
@@ -63,13 +64,22 @@ if __name__ == '__main__':
         model_init_path = mount_dir + "models/%s" % args.model_init_name
 
     data_path = mount_dir + "data/%s.json" % args.data_name
-    training_run_name = mount_dir + "models/%s" % args.training_run_name
+
+    models_dir = mount_dir + "models/"
+    if not os.path.exists(models_dir):
+        os.mkdir(models_dir)
+
+    training_run_name = models_dir + args.training_run_name
+    if not os.path.exists(training_run_name):
+        os.mkdir(training_run_name)
+
     warmup_steps = args.warmup_steps
     max_steps = args.max_steps
     train_batch_size = args.train_batch_size
     eval_batch_size = args.eval_batch_size
     gradient_accumulation_steps = args.gradient_accumulation_steps
     save_steps = args.save_steps
+    no_train = args.no_train
 
     # tokenizer_path = mount_dir + "models/t5-small-cp_tokenizer"
     tokenizer_path = 't5-small'
@@ -93,34 +103,41 @@ if __name__ == '__main__':
     # defining the prompt completion list
     data = json.load(open(data_path))
     train, test = data['train'], data['eval']
-    train_dataset = PromptCompletionDataset(train, model_tokenizer)
-    eval_dataset = PromptCompletionDataset(test, model_tokenizer)
 
-    # get a bunch of training arguments
-    training_args = get_seq2seq_training_args(
-        training_run_name=training_run_name,
-        warmup_steps=warmup_steps, max_steps=max_steps,
-        train_batch_size=train_batch_size, eval_batch_size=eval_batch_size, 
-        gradient_accumulation_steps=gradient_accumulation_steps,
-        save_steps=save_steps
-    )
-    data_collator = get_seq2seq_collator(model_tokenizer)
+    if not no_train:
+        arg_dict = vars(args)
+        json.dump(arg_dict, open(training_run_name + '/training_args.json', 'w'))
 
-    # training loop
-    trainer = Seq2SeqTrainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        data_collator=data_collator,
-        tokenizer=tokenizer,
-    )
-    trainer.train()
+        train_dataset = PromptCompletionDataset(train, model_tokenizer)
+        eval_dataset = PromptCompletionDataset(test, model_tokenizer)
 
+        # get a bunch of training arguments
+        training_args = get_seq2seq_training_args(
+            training_run_name=training_run_name,
+            warmup_steps=warmup_steps, max_steps=max_steps,
+            train_batch_size=train_batch_size, eval_batch_size=eval_batch_size, 
+            gradient_accumulation_steps=gradient_accumulation_steps,
+            save_steps=save_steps
+        )
+        data_collator = get_seq2seq_collator(model_tokenizer)
+
+        # training loop
+        trainer = Seq2SeqTrainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            data_collator=data_collator,
+            tokenizer=tokenizer,
+        )
+        trainer.train()
+
+    # inference
     test_prompts = [d['prompt'] for d in test]
     sampled_results = sample_batched(model_tokenizer, test_prompts, temperature=args.temperature, n=args.n_samples, bsize=args.eval_batch_size)
+    hyp_str = 'temperature=%.2f_n=%d' % (args.temperature, args.n_samples)
     all_results = []
     for prompt, generations in sampled_results.items():
         d = {'prompt': prompt, 'generations': generations}
         all_results.append(d)
-    json.dump(all_results, open(training_run_name + '/eval_generations.json', 'w'))
+    json.dump(all_results, open(training_run_name + '/eval_generations-%s.json' % hyp_str, 'w'))
