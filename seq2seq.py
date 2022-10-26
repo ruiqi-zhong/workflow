@@ -81,8 +81,8 @@ if __name__ == '__main__':
     save_steps = args.save_steps
     no_train = args.no_train
 
-    # tokenizer_path = mount_dir + "models/t5-small-cp_tokenizer"
-    tokenizer_path = 't5-small'
+    tokenizer_path = mount_dir + "models/t5-small-cp_tokenizer"
+    # tokenizer_path = 't5-small'
 
     model = AutoModelForSeq2SeqLM.from_pretrained(model_init_path)
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     demonstrations = [d['completion'] for d in test]
 
     sampled_results = sample_batched(model_tokenizer, test_prompts, temperature=args.temperature, n=args.n_samples, bsize=args.eval_batch_size)
-    hyp_str = 'temperature=%.2f_n=%d' % (args.temperature, args.n_samples)
+    hyp_str = 'temperature=%.2f_n=%d_step=%d' % (args.temperature, args.n_samples, max_steps)
     all_results = []
     for (prompt, generations), demonstration in zip(sampled_results.items(), demonstrations):
         d = {'prompt': prompt, 'generations': generations, 'demonstration': demonstration}
