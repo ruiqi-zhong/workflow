@@ -8,6 +8,8 @@ from trainer_utils import PromptCompletionDataset, get_seq2seq_training_args, ge
 import json
 import argparse
 from inference import sample_batched
+from transformers.trainer_callback import TrainerCallback
+
 
 def print_device_place(model):
     for parameters in model.parameters():
@@ -56,6 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--temperature', type=float, default=0.8)
     parser.add_argument('--n_samples', type=int, default=8)
     parser.add_argument('--no_train', action='store_true')
+    parser.add_argument('--eval_steps', type=int, default=100)
 
     args, unknown = parser.parse_known_args()
     
@@ -80,9 +83,12 @@ if __name__ == '__main__':
     gradient_accumulation_steps = args.gradient_accumulation_steps
     save_steps = args.save_steps
     no_train = args.no_train
+    eval_steps = args.eval_steps
+    temperature = args.temperature
+    n_samples = args.n_samples
 
-    tokenizer_path = mount_dir + "models/t5-small-cp_tokenizer"
-    # tokenizer_path = 't5-small'
+    # tokenizer_path = mount_dir + "models/t5-small-cp_tokenizer"
+    tokenizer_path = 't5-small'
 
     model = AutoModelForSeq2SeqLM.from_pretrained(model_init_path)
 
@@ -102,6 +108,29 @@ if __name__ == '__main__':
     # defining the prompt completion list
     data = json.load(open(data_path))
     train, test = data['train'], data['eval']
+    test_prompts = [d['prompt'] for d in test]
+    demonstrations = [d['completion'] for d in test]
+
+    def eval_model_on_test_prompts(target_model):
+        model_tokenizer = (target_model, tokenizer)
+        sampled_results = sample_batched(model_tokenizer, test_prompts, temperature=temperature, n=n_samples, bsize=eval_batch_size)
+
+        all_results = []
+        for (prompt, generations), demonstration, orig_d in zip(sampled_results.items(), demonstrations, test):
+            d = {'prompt': prompt, 'generations': generations, 'demonstration': demonstration, 'orig_d': orig_d}
+            all_results.append(d)
+        return all_results
+
+    def save_result_path(step):
+        hyp_str = 'temperature=%.2f_n=%d_step=%d' % (temperature, n_samples, step)
+        save_path = os.path.join(training_run_name, '%s.json' % hyp_str)
+        return save_path
+
+    class PredAfterEvalCallback(TrainerCallback):
+        def on_evaluate(self, args, state, control, model, tokenizer, **kwargs):
+            all_results = eval_model_on_test_prompts(model)
+            save_path = save_result_path(state.global_step)
+            json.dump(all_results, open(save_path, 'w'))
 
     if not no_train:
         arg_dict = vars(args)
@@ -116,7 +145,8 @@ if __name__ == '__main__':
             warmup_steps=warmup_steps, max_steps=max_steps,
             train_batch_size=train_batch_size, eval_batch_size=eval_batch_size, 
             gradient_accumulation_steps=gradient_accumulation_steps,
-            save_steps=save_steps
+            save_steps=save_steps,
+            eval_steps=args.eval_steps
         )
         data_collator = get_seq2seq_collator(model_tokenizer)
 
@@ -128,17 +158,14 @@ if __name__ == '__main__':
             eval_dataset=eval_dataset,
             data_collator=data_collator,
             tokenizer=tokenizer,
+            callbacks=[PredAfterEvalCallback()]
         )
         trainer.train()
-
-    # inference
-    test_prompts = [d['prompt'] for d in test]
-    demonstrations = [d['completion'] for d in test]
 
     sampled_results = sample_batched(model_tokenizer, test_prompts, temperature=args.temperature, n=args.n_samples, bsize=args.eval_batch_size)
     hyp_str = 'temperature=%.2f_n=%d_step=%d' % (args.temperature, args.n_samples, max_steps)
     all_results = []
-    for (prompt, generations), demonstration in zip(sampled_results.items(), demonstrations):
-        d = {'prompt': prompt, 'generations': generations, 'demonstration': demonstration}
+    for (prompt, generations), demonstration, orig_d in zip(sampled_results.items(), demonstrations, test):
+        d = {'prompt': prompt, 'generations': generations, 'demonstration': demonstration, 'orig_d': orig_d}
         all_results.append(d)
     json.dump(all_results, open(training_run_name + '/eval_generations-%s.json' % hyp_str, 'w'))

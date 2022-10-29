@@ -30,10 +30,13 @@ def get_seq2seq_training_args(
         training_run_name, warmup_steps=2000, max_steps=10000, 
         train_batch_size=32, eval_batch_size=32, 
         gradient_accumulation_steps=1, save_steps=1000,
+        eval_steps=100,
         deepspeed_json_path=None
     ):
     return Seq2SeqTrainingArguments(
         training_run_name,
+        evaluation_strategy='steps',
+        eval_steps=eval_steps,
         per_device_train_batch_size=train_batch_size,
         per_device_eval_batch_size=eval_batch_size,
         save_total_limit=1,

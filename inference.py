@@ -75,4 +75,5 @@ def sample_batched(
             }
             for idx in range(i * n, (i + 1) * n)
         ]
+    model.train()
     return return_dict
