@@ -87,8 +87,8 @@ if __name__ == '__main__':
     temperature = args.temperature
     n_samples = args.n_samples
 
-    # tokenizer_path = mount_dir + "models/t5-small-cp_tokenizer"
-    tokenizer_path = 't5-small'
+    tokenizer_path = mount_dir + "models/t5-small-cp_tokenizer"
+    # tokenizer_path = 't5-small'
 
     model = AutoModelForSeq2SeqLM.from_pretrained(model_init_path)
 
@@ -160,6 +160,7 @@ if __name__ == '__main__':
             tokenizer=tokenizer,
             callbacks=[PredAfterEvalCallback()]
         )
+        trainer.evaluate()
         trainer.train()
 
     sampled_results = sample_batched(model_tokenizer, test_prompts, temperature=args.temperature, n=args.n_samples, bsize=args.eval_batch_size)
