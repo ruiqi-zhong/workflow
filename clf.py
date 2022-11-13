@@ -127,7 +127,7 @@ class SeqClf(nn.Module):
             
             return {
                 'logits': np.array(all_logits),
-                'scores': np.array(all_logits)[:, 1] - np.array(all_logits)[:, 0]
+                'scores': 1 / (1 + np.e ** (np.array(all_logits)[:, 0] - np.array(all_logits)[:, 1]))
             }
 
     def evaluate_dicts(self, data_dicts, eval_bsize):
