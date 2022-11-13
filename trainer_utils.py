@@ -39,7 +39,7 @@ def get_seq2seq_training_args(
         eval_steps=eval_steps,
         per_device_train_batch_size=train_batch_size,
         per_device_eval_batch_size=eval_batch_size,
-        save_total_limit=1,
+        save_total_limit=5,
         warmup_steps=warmup_steps,
         predict_with_generate=True,
         gradient_accumulation_steps=gradient_accumulation_steps,
