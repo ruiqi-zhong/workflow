@@ -16,18 +16,19 @@ from scipy.stats import pearsonr, spearmanr
 import argparse
 
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+num_device = torch.cuda.device_count()
+first_device_name = 'cuda:0'
+last_device_name = 'cuda:%d' % (torch.cuda.device_count() - 1)
 
 
 def parallelize_across_device(model):
     num_heads = len(model.block)
-    num_device = torch.cuda.device_count()
     if num_device > 1:
         other_device_alloc = num_heads // num_device + 1
-        first_device = num_heads - (num_device - 1) * other_device_alloc
+        first_device_alloc = num_heads - (num_device - 1) * other_device_alloc
         device_map = {}
         cur = 0
-        end = max(cur + first_device, 1)
+        end = max(cur + first_device_alloc, 1)
         device_map[0] = list(range(cur, end))
         cur = end
         for i in range(1, num_device):
@@ -37,7 +38,7 @@ def parallelize_across_device(model):
         print('device_map', device_map)
         model.parallelize(device_map)
     else:
-        model.to(device)
+        model.to(first_device_name)
 
 def load_t5encoder(pretrain_model):
     model = T5ForConditionalGeneration.from_pretrained(pretrain_model)
@@ -57,7 +58,7 @@ class T5ForSeqClassification(nn.Module):
         self.pretrain_model = pretrain_model
         m_dict = load_t5encoder(pretrain_model)
         self.model = m_dict['model']
-        self.clf_layer = nn.Linear(m_dict['d_model'], 2).to(device)
+        self.clf_layer = nn.Linear(m_dict['d_model'], 2).to(last_device_name)
         self.tok = AutoTokenizer.from_pretrained(pretrain_model)
 
     def forward(self, input_ids, attention_mask, labels=None):
@@ -86,7 +87,7 @@ class SeqClf(nn.Module):
             self.model = AutoModelForSequenceClassification.from_pretrained(pretrain_model)
             if load_path is not None:
                 self.model = self.model.from_pretrained(load_path)
-            self.model.to(device)
+            self.model.to(first_device_name)
         self.tok = AutoTokenizer.from_pretrained(pretrain_model)
         self.max_length = max_length
         self.loss_fn = nn.KLDivLoss()
@@ -95,10 +96,10 @@ class SeqClf(nn.Module):
     
     def forward(self, data_dicts):
         input_texts = [d['input'] for d in data_dicts]
-        inputs = self.tok(input_texts, return_tensors='pt', truncation=True, padding=True).to(device)
+        inputs = self.tok(input_texts, return_tensors='pt', truncation=True, padding=True).to(first_device_name)
         labels = None
         if data_dicts[0].get('target') is not None:
-            labels = torch.tensor([[1 - d['target'], d['target']] for d in data_dicts]).to(device)
+            labels = torch.tensor([[1 - d['target'], d['target']] for d in data_dicts]).to(last_device_name)
         model_outputs = self.model(**inputs)
         if 't5' not in self.pretrain_model:
             logits = model_outputs.logits
@@ -184,7 +185,7 @@ def train_and_eval(
         loss = outputs['loss']
         loss.backward()
 
-        global_step_finishes = (mini_step + 1) % accumulate == 0
+        global_step_finishes = ((mini_step + 1) % accumulate) == 0
 
         if global_step_finishes:
             optimizer.step()
@@ -193,14 +194,16 @@ def train_and_eval(
 
         global_step_finished = (mini_step + 1) // accumulate
 
-        if save_every is not None and save_path_prefix is not None and global_step_finished % save_every == 0 and global_step_finished > 0 and global_step_finishes:
-            save_path = save_path_prefix + '-%d' % global_step_finished
-            model.model.save_pretrained(save_path)
+        if save_path_prefix is not None and global_step_finishes:
+            if save_every is not None and global_step_finished % save_every == 0:
+                save_path = save_path_prefix + '-%d' % global_step_finished
+                model.model.save_pretrained(save_path)
 
-        if eval_every is not None and global_step_finished % eval_every == 0 and global_step_finished > 0 and global_step_finishes:
-            saved_preds = model.evaluate_dicts(all_data_dicts['eval'], eval_bsize)
-            json.dump(saved_preds, open(save_path_prefix + '-%d-preds.json' % global_step_finished, 'w'))
-            model.train()
+            if eval_every is not None and global_step_finished % eval_every == 0:
+                saved_preds = model.evaluate_dicts(all_data_dicts['eval'], eval_bsize)
+                json.dump(saved_preds, open(save_path_prefix + '-%d-preds.json' % global_step_finished, 'w'))
+        
+        model.train()
     return model
 
 def evaluate_pred_path(pred_path):
@@ -256,7 +259,7 @@ if __name__ == '__main__':
     
     # the first few steps only train the last layer
     if not args.no_train:
-        model = train_and_eval(data_dicts, model, num_steps=1000, save_path_prefix=None, train_bsize=args.train_batch_size, accumulate=args.gradient_accumulation_steps, save_every=None, eval_every=None, warmup_steps=1000, train_last_lyer_only=True)
+        model = train_and_eval(data_dicts, model, num_steps=1000, save_path_prefix=None, train_bsize=args.train_batch_size, accumulate=args.gradient_accumulation_steps, save_every=None, eval_every=None, warmup_steps=5000, train_last_lyer_only=True)
         resulting_model = train_and_eval(data_dicts, model, save_path_prefix=save_path_prefix, num_steps=args.max_steps, train_bsize=args.train_batch_size, eval_bsize=args.eval_batch_size, accumulate=args.gradient_accumulation_steps, save_every=args.save_steps, eval_every=args.eval_steps, warmup_steps=args.warmup_steps)
 
     preds = model.evaluate_dicts(data_dicts['eval'], args.eval_batch_size)
