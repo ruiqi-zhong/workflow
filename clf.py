@@ -14,7 +14,7 @@ import pickle as pkl
 import json
 from scipy.stats import pearsonr, spearmanr
 import argparse
-
+import sys
 
 num_device = torch.cuda.device_count()
 first_device_name = 'cuda:0'
@@ -226,7 +226,7 @@ if __name__ == '__main__':
     # command for debugging
     # training
     # python3 clf.py --model_pretrain_name t5-small --data clf_debug --max_steps=2000 --save_steps=2000
-   
+    print(sys.argv)
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--model_pretrain_name', type=str, required=True)
@@ -240,7 +240,9 @@ if __name__ == '__main__':
     parser.add_argument('--gradient_accumulation_steps', type=int, default=1)
     parser.add_argument('--save_steps', type=int, default=None)
     parser.add_argument('--no_train', action='store_true')
+    parser.add_argument('--no_ft_head_first', action='store_true')
     parser.add_argument('--eval_steps', type=int, default=3000)
+    parser.add_argument('--pred_save_path', type=str, default=None)
 
     args, unknown = parser.parse_known_args()
 
@@ -259,11 +261,21 @@ if __name__ == '__main__':
     
     # the first few steps only train the last layer
     if not args.no_train:
-        model = train_and_eval(data_dicts, model, num_steps=1000, save_path_prefix=None, train_bsize=args.train_batch_size, accumulate=args.gradient_accumulation_steps, save_every=None, eval_every=None, warmup_steps=5000, train_last_lyer_only=True)
+        if not args.no_ft_head_first:
+            model = train_and_eval(data_dicts, model, num_steps=1000, save_path_prefix=None, train_bsize=args.train_batch_size, accumulate=args.gradient_accumulation_steps, save_every=None, eval_every=None, warmup_steps=5000, train_last_lyer_only=True)
         resulting_model = train_and_eval(data_dicts, model, save_path_prefix=save_path_prefix, num_steps=args.max_steps, train_bsize=args.train_batch_size, eval_bsize=args.eval_batch_size, accumulate=args.gradient_accumulation_steps, save_every=args.save_steps, eval_every=args.eval_steps, warmup_steps=args.warmup_steps)
 
     preds = model.evaluate_dicts(data_dicts['eval'], args.eval_batch_size)
-    pred_save_path = os.path.join(save_dir, 'preds.json')
-    json.dump(preds, open(pred_save_path, 'w'))
-    print(evaluate_pred_path(pred_save_path))
 
+    if args.pred_save_path is not None:
+        pred_save_path = args.pred_save_path
+    else:
+        pred_save_path = os.path.join(save_dir, 'preds.json')
+    json.dump(preds, open(pred_save_path, 'w'))
+    if all(d['target'] is not None for d in data_dicts['eval']):
+        print(evaluate_pred_path(pred_save_path))
+
+
+# python3 clf.py --model_pretrain_name t5-small --model_init_path mount/models/t5-small_hardnews_iid_0/checkpoint-10000/model.pt --data hardnews_unlabeled_0 --pred_save_path mount/preds/t5smallsplit0step10000.json --no_train
+# sbatch -p jsteinhardt -w balrog --gres=gpu:1 --export=model_name='t5-small',split=0,partition=9,step=10000 eval_hardnews.sh
+# python3 clf.py --model_pretrain_name $model_name --model_init_path mount/models/$model_name\_hardnews_iid_$split/checkpoint-$step/model.pt --data hardnews_unlabeled_$partition --pred_save_path mount/preds/$model_name\_split$split\_step$step\_partition$partition.json --no_train
