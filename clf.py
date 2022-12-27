@@ -1,3 +1,5 @@
+print('classification script starts running')
+
 import os
 import random
 from itertools import chain
