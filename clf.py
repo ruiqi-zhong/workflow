@@ -106,8 +106,6 @@ class T5ForSeqClassification(nn.Module):
         def __init__(self, pretrain_model='t5-base'):
             super().__init__()
             self.pretrain_model = pretrain_model
-            self.model = T5ForConditionalGeneration.from_pretrained(pretrain_model)
-            parallelize_across_device(self.model)
             try:
                 self.tok = AutoTokenizer.from_pretrained(pretrain_model)
             except Exception as e:
@@ -115,7 +113,8 @@ class T5ForSeqClassification(nn.Module):
                 if 't5' in pretrain_model:
                     self.tok = T5Tokenizer.from_pretrained('mount/models/t5tok')
             
-
+            self.model = T5ForConditionalGeneration.from_pretrained(pretrain_model)
+            parallelize_across_device(self.model)
             self.vocab = self.tok.get_vocab()
             self.yes_id, self.no_id = self.vocab['▁yes'], self.vocab['▁no']
     
