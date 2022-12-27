@@ -3,7 +3,7 @@ print('classification script starts running')
 import os
 import random
 from itertools import chain
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, T5ForConditionalGeneration
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, T5ForConditionalGeneration, T5Tokenizer
 import torch
 import tqdm
 from transformers import get_linear_schedule_with_warmup
