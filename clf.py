@@ -135,7 +135,12 @@ class SeqClf(nn.Module):
             if load_path is not None:
                 self.model = self.model.from_pretrained(load_path)
             self.model.to(first_device_name)
-        self.tok = AutoTokenizer.from_pretrained(pretrain_model)
+        try:
+            self.tok = AutoTokenizer.from_pretrained(pretrain_model)
+        except Exception as e:
+            print(e)
+            if 't5' in pretrain_model:
+                self.tok = T5Tokenizer.from_pretrained('mount/models/t5tok')
         self.max_length = max_length
         self.loss_fn = nn.KLDivLoss()
         self.tok.model_max_length = max_length
