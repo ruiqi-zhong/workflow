@@ -88,6 +88,8 @@ if __name__ == '__main__':
     n_samples = args.n_samples
 
     tokenizer_path = mount_dir + "models/t5-small-cp_tokenizer"
+    if not os.path.exists(tokenizer_path):
+        tokenizer_path = 't5-small'
     # tokenizer_path = 't5-small'
 
     model = AutoModelForSeq2SeqLM.from_pretrained(model_init_path)
