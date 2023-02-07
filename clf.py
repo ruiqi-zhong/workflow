@@ -310,7 +310,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_pretrain_name', type=str, required=True)
     parser.add_argument('--model_init_path', type=str, default=None)
     parser.add_argument('--data_name', type=str, default='clf_debug')
-    parser.add_argument('--training_run_name', type=str, default='clf_debug')
+    parser.add_argument('--training_run_name', type=str, default=None)
     parser.add_argument('--warmup_steps', type=int, default=1000)
     parser.add_argument('--max_steps', type=int, default=3000)
     parser.add_argument('--train_batch_size', type=int, default=32)
@@ -318,7 +318,7 @@ if __name__ == '__main__':
     parser.add_argument('--gradient_accumulation_steps', type=int, default=1)
     parser.add_argument('--save_steps', type=int, default=None)
     parser.add_argument('--no_train', action='store_true')
-    parser.add_argument('--no_ft_head_first', action='store_true')
+    parser.add_argument('--ft_head_first', action='store_true')
     parser.add_argument('--eval_steps', type=int, default=3000)
     parser.add_argument('--pred_save_path', type=str, default=None)
     parser.add_argument('--scores_only', action='store_true')
@@ -331,6 +331,9 @@ if __name__ == '__main__':
     data_path = 'mount/data/%s.json' % args.data_name
     data_dicts = json.load(open(data_path))
 
+    if args.training_run_name is None:
+        args.training_run_name = args.data_name + '_' + args.model_pretrain_name.replace('/', '-')
+
     save_dir = 'mount/models/%s' % args.training_run_name
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -342,7 +345,7 @@ if __name__ == '__main__':
     
     # the first few steps only train the last layer
     if not args.no_train:
-        if not args.no_ft_head_first:
+        if args.ft_head_first:
             model = train_and_eval(data_dicts, model, num_steps=1000, save_path_prefix=None, train_bsize=args.train_batch_size, accumulate=args.gradient_accumulation_steps, save_every=None, eval_every=None, warmup_steps=5000, train_last_lyer_only=True)
         resulting_model = train_and_eval(data_dicts, model, save_path_prefix=save_path_prefix, num_steps=args.max_steps, train_bsize=args.train_batch_size, eval_bsize=args.eval_batch_size, accumulate=args.gradient_accumulation_steps, save_every=args.save_steps, eval_every=args.eval_steps, warmup_steps=args.warmup_steps, save_best_metric=args.save_best_metric)
 
