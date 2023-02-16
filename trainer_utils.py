@@ -31,11 +31,11 @@ def get_seq2seq_training_args(
         train_batch_size=32, eval_batch_size=32, 
         gradient_accumulation_steps=1, save_steps=1000,
         eval_steps=100,
-        deepspeed_json_path=None
+        deepspeed_json_path=None, evaluation_strategy='steps', optim='adafactor'
     ):
     return Seq2SeqTrainingArguments(
         training_run_name,
-        evaluation_strategy='steps',
+        evaluation_strategy=evaluation_strategy,
         eval_steps=eval_steps,
         per_device_train_batch_size=train_batch_size,
         per_device_eval_batch_size=eval_batch_size,
@@ -46,7 +46,7 @@ def get_seq2seq_training_args(
         max_steps=max_steps,
         save_steps=save_steps,
         push_to_hub=False,
-        optim='adafactor',
+        optim=optim,
         deepspeed=deepspeed_json_path
     )
 

@@ -18,6 +18,7 @@ def remove_prefix(s, prefix):
 def sample_batched(
     model_tokenizer, prompts, temperature=0.8, n=8, bsize=8, 
     max_source_length=1024, max_target_length=512, save_score_tok_idx=None, verbose=True, stop_strs=None):
+    assert len(set(prompts)) == len(prompts), "prompts must be unique"
     model, tokenizer = model_tokenizer
     prompts_inflated = []
 
