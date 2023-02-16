@@ -60,7 +60,7 @@ The data format is a .json file containing a dictionary
 ```
 {'train': [{'prompt': '<prompt>', 'completion': '<completion>'}, ...], 'eval': [{...}, {...}]}
 ```
-Only the key ```'prompt'``` and ```'completion'``` are required for each dictionary to make fine-tuning to work. The file I provided contains other info for logging purposes. The design tries to mirror the openai design as much as possible, which is the level of abstraction I need for most of my current NLP application research. 
+Only the key ```'prompt'``` and ```'completion'``` are required for each dictionary to make fine-tuning to work. The file I provided contains other info for logging purposes. The design tries to mirror the openai design as much as possible, which is the level of abstraction I need for most of my current NLP application research. See ```mount/data/data.json``` for an example.
 
 ### Binary Classification and Regression
 
@@ -82,3 +82,5 @@ Classify whether the article is sports releated. Output yes or no.
 article: <article>
 output:
 ```
+
+See ```mount/data/1226verifier_ft_all.json``` for an example.
