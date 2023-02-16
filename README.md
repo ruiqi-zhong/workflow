@@ -16,9 +16,9 @@ This github is mostly built around fine-tuning the T5 series, which is, surprisi
 If you want a fine-tunable LM with high performance, your default choice should be ```google/flan-t5-xxl``` (which is mostly instruction-tuned based on AI2's repo with 1600+ tasks + something from Google).
 
 
-### Prompt Completion
+### Sequence to Sequence Modelling (e.g., Prompt Completion)
 
-Below is the command I usually used: 
+This is probably the most common usage of LLM right now -- given a prompt, return a sequence of tokens as the completion. Below is an example command I used to continue fine-tuning an instruction-tuned model on a sepcific task.
 
 ```ctl job run --name 0216synexplain  --container rz2383/deepspeed:1229a --login --high-priority --shared-host-dir /home/rzhong --gpu 4 --command 'bash -c "cd data/workflow; python3 seq2seq.py --model_init_name flan-t5-xxl --training_run_name 0216syn_explain --gradient_accumulation_steps 2 --train_batch_size 8 --max_steps 6001 --data synthetic_explain  --eval_steps 2000 --temperature 0.001 --n_samples 1"'```
 
@@ -26,7 +26,7 @@ It uses 4 x 80 GPUs and a batch size of 16 (8 examples per step and accumuate 2 
 
 The command will 
 - indicate that we are using bash with ```bash -c```
-- change directory into the ```data/workflow```. notice that I put this repo (```workflow```) in my home directory, but when we launch a job, the home directory will be mounted to the ```data/``` directory, so that's why I need to cd into ```data/workflow``` rather than just ```workflow```
+- change directory into the ```data/workflow```. notice that I put this repo (```workflow```) in my home directory, but when we launch a job, the home directory will be mounted to the ```data/``` directory, so that's why I need to cd into ```data/workflow/``` rather than just ```workflow/```
 - then run the fine-tuning job with the ```seq2seq.py``` file.
 
 ```
