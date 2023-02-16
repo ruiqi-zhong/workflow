@@ -7,7 +7,7 @@ If your experiments produce wrong results because there is a bug in my code, it'
 
 ## Onboard 
 
-You need to follow the onboarding instruction of HOFVARPNIR in order to 
+Follow the onboarding instruction of HOFVARPNIR to understand the basic setups and command available. You need to create a docker environment and the ```Dockerfile``` and ```requirements.txt``` are included in this folder.
 
 
 ## High level overview
@@ -27,7 +27,7 @@ It uses 4 x 80 GPUs and a batch size of 16 (8 examples per step and accumuate 2 
 The command will 
 - indicate that we are using bash with ```bash -c```
 - change directory into the ```data/workflow```. notice that I put this repo (```workflow```) in my home directory, but when we launch a job, the home directory will be mounted to the ```data/``` directory, so that's why I need to cd into ```data/workflow``` rather than just ```workflow```
-- then run the fine-tuning job with the ```seq2seq.py`` file.
+- then run the fine-tuning job with the ```seq2seq.py``` file.
 
 ```
 optional arguments:
