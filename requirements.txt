@@ -1,0 +1,6 @@
+mpi4py
+deepspeed
+transformers[deepspeed]
+sentencepiece
+notebook
+openai
