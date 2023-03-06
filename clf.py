@@ -244,30 +244,17 @@ def train_and_eval(
     best_performance = 0
     pbar = tqdm.trange(num_steps * accumulate)
     loss_moving_avg = 0
+    global_step_finished = 0
+    global_step_finishes_bool = True
+
     for mini_step in pbar:
-        pbar.set_description('Step %d' % (mini_step // accumulate))
-        random.shuffle(train_data_dicts)
-        outputs = model(train_data_dicts[:train_bsize])
-        loss = outputs['loss']
-        loss.backward()
-        loss_moving_avg = loss_moving_avg * 0.95 + loss.item() * 0.05
-        pbar.set_postfix(loss='%.4f' % loss_moving_avg)
-
-        global_step_finishes = ((mini_step + 1) % accumulate) == 0
-
-        if global_step_finishes:
-            optimizer.step()
-            scheduler.step()
-            optimizer.zero_grad()
-
-        global_step_finished = (mini_step + 1) // accumulate
 
         if save_path_prefix is not None:
-            if save_every is not None and global_step_finishes !=0 and global_step_finished % save_every == 0:
+            if save_every is not None and global_step_finished % save_every == 0:
                 save_path = save_path_prefix + '-%d' % global_step_finished
                 model.model.save_pretrained(save_path)
 
-            if eval_every is not None and global_step_finished % eval_every == 0:
+            if eval_every is not None and (global_step_finished % eval_every == 0):
                 saved_preds = model.evaluate_dicts(all_data_dicts['eval'], eval_bsize)
                 json.dump(saved_preds, open(save_path_prefix + '-%d-preds.json' % global_step_finished, 'w'))
                 
@@ -280,6 +267,23 @@ def train_and_eval(
                         if os.path.exists(model_save_path):
                             shutil.rmtree(model_save_path)
                         model.model.save_pretrained(model_save_path)
+
+        pbar.set_description('Step %d' % (mini_step // accumulate))
+        random.shuffle(train_data_dicts)
+        outputs = model(train_data_dicts[:train_bsize])
+        loss = outputs['loss']
+        loss.backward()
+        loss_moving_avg = loss_moving_avg * 0.95 + loss.item() * 0.05
+        pbar.set_postfix(loss='%.4f' % loss_moving_avg)
+
+        global_step_finishes_bool = ((mini_step + 1) % accumulate) == 0
+
+        if global_step_finishes_bool:
+            optimizer.step()
+            scheduler.step()
+            optimizer.zero_grad()
+
+        global_step_finished = (mini_step + 1) // accumulate
 
         model.train()
     return model
