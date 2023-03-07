@@ -4,6 +4,7 @@ import os
 import random
 from itertools import chain
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, T5ForConditionalGeneration, T5Tokenizer
+from transformers.optimization import Adafactor, AdafactorSchedule
 import torch
 import tqdm
 from transformers import get_linear_schedule_with_warmup
@@ -114,6 +115,7 @@ class T5ForSeqClassification(nn.Module):
                     self.tok = T5Tokenizer.from_pretrained('mount/models/t5tok')
             
             self.model = T5ForConditionalGeneration.from_pretrained(pretrain_model)
+            self.model = self.model.to(torch.bfloat16)
             parallelize_across_device(self.model)
             self.vocab = self.tok.get_vocab()
             self.yes_id, self.no_id = self.vocab['▁yes'], self.vocab['▁no']
@@ -180,7 +182,7 @@ class SeqClf(nn.Module):
             while cur_start < len(texts):
                 input_dicts = [{'input': t} for t in texts[cur_start:cur_start + eval_bsize]]
                 model_output_dict = self.forward(input_dicts)
-                logits = lsm(model_output_dict['logits'].detach().cpu()).numpy().tolist()
+                logits = lsm(model_output_dict['logits'].detach().cpu().float()).numpy().tolist()
                 all_logits.extend(logits)
                 cur_start += eval_bsize
                 pbar.update(eval_bsize)
@@ -236,10 +238,14 @@ def train_and_eval(
         'weight_decay': 0.01},
         {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay) and not frozen_param_name(n)], 'weight_decay': 0.0}
     ]
-    optimizer = AdamW(optimizer_grouped_parameters, lr=5e-5)
-    if num_steps is None:
-        num_steps = max(num_steps, total_datapoints // train_bsize * 3)
-    scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, num_steps)
+
+    # optimizer = AdamW(optimizer_grouped_parameters, lr=5e-5)
+    # if num_steps is None:
+    #     num_steps = max(num_steps, total_datapoints // train_bsize * 3)
+    # scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, num_steps)
+
+    optimizer = Adafactor(model.parameters(), scale_parameter=True, relative_step=True, warmup_init=True, lr=None)
+    scheduler = AdafactorSchedule(optimizer)
     
     best_performance = 0
     pbar = tqdm.trange(num_steps * accumulate)
@@ -249,7 +255,7 @@ def train_and_eval(
 
     for mini_step in pbar:
 
-        if save_path_prefix is not None:
+        if save_path_prefix is not None and global_step_finishes_bool:
             if save_every is not None and global_step_finished % save_every == 0:
                 save_path = save_path_prefix + '-%d' % global_step_finished
                 model.model.save_pretrained(save_path)
@@ -315,7 +321,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_init_path', type=str, default=None)
     parser.add_argument('--data_name', type=str, default='clf_debug')
     parser.add_argument('--training_run_name', type=str, default=None)
-    parser.add_argument('--warmup_steps', type=int, default=1000)
+    parser.add_argument('--warmup_steps', type=int, default=None)
     parser.add_argument('--max_steps', type=int, default=3000)
     parser.add_argument('--train_batch_size', type=int, default=32)
     parser.add_argument('--eval_batch_size', type=int, default=32)
@@ -334,6 +340,8 @@ if __name__ == '__main__':
     model = SeqClf(args.model_pretrain_name, load_path=args.model_init_path, max_length=args.max_length)
     data_path = 'mount/data/%s.json' % args.data_name
     data_dicts = json.load(open(data_path))
+
+    print('argument warmup_steps is deprecated')
 
     if args.training_run_name is None:
         args.training_run_name = args.data_name + '_' + args.model_pretrain_name.replace('/', '-')
