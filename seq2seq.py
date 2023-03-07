@@ -93,6 +93,7 @@ if __name__ == '__main__':
     # tokenizer_path = 't5-small'
 
     model = AutoModelForSeq2SeqLM.from_pretrained(model_init_path)
+    model = model.to(torch.bfloat16)
 
     # parallelize across devices via device placement
     parallelize_across_device(model)
