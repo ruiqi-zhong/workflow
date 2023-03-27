@@ -40,6 +40,39 @@ def recalibration_map(orig_score2calibrated_score):
     return ys
 
 
+def evaluate_preds(preds):
+    orig_pred_scores = [p['pred_score'] for p in preds]
+    orig_pred_scores = np.array(orig_pred_scores)
+    pred_scores = rank_of_each_element(orig_pred_scores)
+    orig_scores = [p['orig_d']['target'] for p in preds]
+    discrete_gold_label = [1 if s > 0.5 else 0 for s in orig_scores]
+    discrete_pred_label = [1 if s > 0.5 else 0 for s in pred_scores]
+    optimal_acc, optimal_threshold, optimal_discrete_pred_label = 0, 0, None
+    for threshold in np.arange(0.0, 1.0, 0.01):
+        thresholded_discrete_pred_label = [1 if s > threshold else 0 for s in pred_scores]
+        acc = accuracy_score(discrete_gold_label, thresholded_discrete_pred_label)
+        if acc > optimal_acc:
+            optimal_acc = acc
+            optimal_threshold = threshold
+            optimal_discrete_pred_label = thresholded_discrete_pred_label
+
+    result_dict = {
+        'accuracy': accuracy_score(discrete_gold_label, discrete_pred_label),
+        'auc': roc_auc_score(discrete_gold_label, pred_scores),
+        'rmse': np.sqrt(np.mean((np.array(orig_scores) - np.array(pred_scores)) ** 2)),
+        'spearman_corr': spearmanr(orig_scores, pred_scores)[0],
+        'spearman_p-value': spearmanr(orig_scores, pred_scores)[1],
+        'optimal_acc': optimal_acc,
+        'optimal_threshold': optimal_threshold,
+        'discrete_pred_label': discrete_pred_label,
+        'threshold_tuned_discrete_pred_label': optimal_discrete_pred_label,
+        'pred_scores': pred_scores
+    }
+    return result_dict
+    
+
+
+
 def evaluate_pred_path(pred_path):
     if type(pred_path) == str:
         preds = json.load(open(pred_path))

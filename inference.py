@@ -64,7 +64,7 @@ def sample_batched(
             )
 
             all_completions.extend(decoded_strs)
-            all_first_scores.extend(generation_result.scores[0].detach().cpu().numpy().tolist())
+            all_first_scores.extend(generation_result.scores[0].detach().cpu().float().numpy().tolist())
     return_dict = OrderedDict()
     for i, prompt in enumerate(prompts):
         return_dict[prompt] = [
