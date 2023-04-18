@@ -15,6 +15,19 @@ def seq2seq_eval_path(path):
     return np.mean([x == y for x, y in zip(labels, preds)])
 
 
+def bin_score(scores, num_bins):
+    # Calculate bin edges based on percentiles
+    bin_edges = np.percentile(scores, np.linspace(0, 100, num_bins))
+
+    # Assign each score to a bin
+    binned_scores = np.digitize(scores, bin_edges, right=True)
+
+    # Adjust for scores equal to the maximum bin edge
+    binned_scores[binned_scores > num_bins] = num_bins
+
+    return binned_scores
+
+
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
@@ -88,6 +101,7 @@ def evaluate_preds(preds):
         "discrete_pred_label": discrete_pred_label,
         "threshold_tuned_discrete_pred_label": optimal_discrete_pred_label,
         "pred_scores": pred_scores,
+        "gold_scores": orig_scores,
     }
     return result_dict
 
@@ -149,5 +163,6 @@ def evaluate_pred_path(pred_path):
         "discrete_pred_label": discrete_pred_label,
         "threshold_tuned_discrete_pred_label": optimal_discrete_pred_label,
         "pred_scores": pred_scores,
+        "gold_scores": orig_scores,
     }
     return result_dict
