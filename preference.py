@@ -1,4 +1,9 @@
-from transformers import T5Tokenizer, T5ForConditionalGeneration, T5Model
+from transformers import (
+    T5Tokenizer,
+    T5ForConditionalGeneration,
+    T5Model,
+    T5ForConditionalGeneration,
+)
 from transformers.optimization import Adafactor, AdafactorSchedule
 from torch import nn
 from typing import List
@@ -159,6 +164,64 @@ class T5Seq2SeqValueEstimator(nn.Module):
         return model
 
 
+PROMPT_PREFIX = (
+    f"Is the assisstant's response after {SEP_SEGMENT.strip()} good? Answer yes or no."
+)
+
+
+class T5PromptedValueEstimator(nn.Module):
+    def __init__(self, model_name):
+        super().__init__()
+        self.model = T5ForConditionalGeneration.from_pretrained(model_name).to(
+            torch.bfloat16
+        )
+        self.seq2seq_flag = True
+        parallelize_across_device(self.model)
+        self.tokenizer = T5Tokenizer.from_pretrained(model_name)
+        self.first_device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.last_device = (
+            "cuda:{}".format(torch.cuda.device_count() - 1)
+            if torch.cuda.is_available()
+            else "cpu"
+        )
+        self.vocab = self.tokenizer.get_vocab()
+        self.yes_id = self.vocab["▁yes"]
+
+    def forward(self, texts: List[str]):
+        texts = [PROMPT_PREFIX + t for t in texts]
+        tokenized_texts = self.tokenizer(
+            texts, return_tensors="pt", padding=True, truncation=True
+        ).to(self.first_device)
+        num_texts = len(texts)
+        starts = torch.tensor(
+            [[self.model.config.decoder_start_token_id]] * num_texts
+        ).to(self.first_device)
+        output = self.model(
+            input_ids=tokenized_texts["input_ids"],
+            attention_mask=tokenized_texts["attention_mask"],
+            decoder_input_ids=starts,
+        )
+        logits = output.logits[:, 0, self.yes_id]
+        return logits
+
+    @staticmethod
+    def from_pretrained(path):
+        size = (
+            "xxl"
+            if "xxl" in path
+            else "xl"
+            if "xl" in path
+            else "large"
+            if "large" in path
+            else "base"
+            if "base" in path
+            else "small"
+        )
+        model = T5PromptedValueEstimator(f"t5-{size}")
+        model.load_state_dict(torch.load(path))
+        return model
+
+
 def inference_on_batch(model, batch, surrogate_loss=False):
     texts = []
     if "more_preferred" in batch[0]:
@@ -308,6 +371,13 @@ def train_preference_model(
             torch.save(model.state_dict(), checkpoint_path)
 
 
+choice2class = {
+    "encoder": T5EncoderValueEstimator,
+    "seq2seq": T5Seq2SeqValueEstimator,
+    "prompted": T5PromptedValueEstimator,
+}
+
+
 if __name__ == "__main__":
 
     DEBUG_FLAG = False
@@ -405,7 +475,7 @@ if __name__ == "__main__":
         parser.add_argument(
             "--architecture",
             type=str,
-            choices=["seq2seq", "encoder"],
+            choices=list(choice2class.keys()),
             help="Architecture to use, whether to put the response into the decoder or not.",
             default=None,
         )
@@ -433,7 +503,10 @@ if __name__ == "__main__":
             assert (
                 "seq2seq" in args.model_path or "encoder" in args.model_path
             ), "model_path must contain either seq2seq or encoder"
-            args.architecture = "seq2seq" if "seq2seq" in args.model_path else "encoder"
+            for key, value in choice2class.items():
+                if key in args.model_path:
+                    args.architecture = key
+                    break
         else:
             assert args.architecture is not None
 
@@ -443,11 +516,7 @@ if __name__ == "__main__":
             if args.eval_steps is None:
                 args.eval_steps = args.max_steps // 10
 
-        model_class = (
-            T5Seq2SeqValueEstimator
-            if args.architecture == "seq2seq"
-            else T5EncoderValueEstimator
-        )
+        model_class = choice2class[args.architecture]
         if args.model_path is not None:
             model = model_class.from_pretrained(args.model_path)
         else:
@@ -502,7 +571,7 @@ if __name__ == "__main__":
     else:
         create_data_flag = True
         debug_training_flag = True
-        cls = T5Seq2SeqValueEstimator
+        cls = T5PromptedValueEstimator
 
         if create_data_flag:
             example_train_dict = {
