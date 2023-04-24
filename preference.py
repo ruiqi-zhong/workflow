@@ -89,7 +89,7 @@ class T5EncoderValueEstimator(nn.Module):
             if "base" in path
             else "small"
         )
-        model = T5EncoderValueEstimator(f"t5-{size}")
+        model = T5EncoderValueEstimator(f"google/flan-t5-{size}")
         model.load_state_dict(torch.load(path))
         return model
 
@@ -159,7 +159,7 @@ class T5Seq2SeqValueEstimator(nn.Module):
             if "base" in path
             else "small"
         )
-        model = T5Seq2SeqValueEstimator(f"t5-{size}")
+        model = T5Seq2SeqValueEstimator(f"google/flan-t5-{size}")
         model.load_state_dict(torch.load(path))
         return model
 
@@ -217,7 +217,7 @@ class T5PromptedValueEstimator(nn.Module):
             if "base" in path
             else "small"
         )
-        model = T5PromptedValueEstimator(f"t5-{size}")
+        model = T5PromptedValueEstimator(f"google/flan-t5-{size}")
         model.load_state_dict(torch.load(path))
         return model
 
@@ -248,7 +248,6 @@ def inference_on_batch(model, batch, surrogate_loss=False):
         ]
         values = np.array(values)
         correctness = [1 if v1 > v2 else 0 for v1, v2 in values]
-        print("accuracy", np.mean(correctness))
         return values, loss, correctness
     else:
         for example in batch:
@@ -267,7 +266,8 @@ def preference_inference(model, data_dicts, eval_batch_size):
         all_values.extend(values)
         if loss is not None:
             all_loss.append(loss.item() * len(correctness))
-        all_correctness.extend(correctness)
+        if correctness is not None:
+            all_correctness.extend(correctness)
 
     all_values = np.array(all_values)
     all_correctness = np.array(all_correctness)
@@ -293,6 +293,7 @@ def train_preference_model(
     save_dir,
     constant_lr=False,
     surrogate_fraction=0.0,
+    save_best=False,
 ):
 
     if not os.path.exists(save_dir):
@@ -324,6 +325,7 @@ def train_preference_model(
     global_step_finished = 0
 
     pbar = trange(total_mini_steps)
+    best_accuracy = 0.0
 
     for mini_step_idx in pbar:
 
@@ -358,6 +360,11 @@ def train_preference_model(
             model.eval()
             data_dicts = data["eval"]
             eval_results = preference_inference(model, data_dicts, eval_batch_size)
+            accuracy = eval_results["mean_accuracy"]
+            if save_best and accuracy > best_accuracy:
+                best_accuracy = accuracy
+                torch.save(model.state_dict(), os.path.join(save_dir, "best_model"))
+
             with open(
                 os.path.join(save_dir, f"{global_step_finished}_eval_results.json"), "w"
             ) as f:
@@ -408,7 +415,7 @@ if __name__ == "__main__":
         parser.add_argument(
             "--max_steps",
             type=int,
-            default=20000,
+            default=10000,
             help="Number of training steps",
         )
 
@@ -429,7 +436,7 @@ if __name__ == "__main__":
         parser.add_argument(
             "--gradient_accumulation_steps",
             type=int,
-            default=4,
+            default=2,
             help="Number of steps to accumulate gradients",
         )
 
@@ -493,6 +500,12 @@ if __name__ == "__main__":
             help="Fraction of training steps that use the surrogate loss",
         )
 
+        parser.add_argument(
+            "--save_best",
+            action="store_true",
+            help="Whether to save the best model",
+        )
+
         args = parser.parse_args()
 
         if not os.path.exists(args.data_path):
@@ -501,7 +514,9 @@ if __name__ == "__main__":
         print("loading model")
         if args.model_path is not None:
             assert (
-                "seq2seq" in args.model_path or "encoder" in args.model_path
+                "seq2seq" in args.model_path
+                or "encoder" in args.model_path
+                or "prompted" in args.model_path
             ), "model_path must contain either seq2seq or encoder"
             for key, value in choice2class.items():
                 if key in args.model_path:
@@ -553,6 +568,7 @@ if __name__ == "__main__":
                 save_dir=save_dir,
                 constant_lr=args.constant_lr,
                 surrogate_fraction=args.surrogate_fraction,
+                save_best=args.save_best,
             )
         else:
             if args.pred_path is None:
@@ -562,9 +578,11 @@ if __name__ == "__main__":
                 exit(0)
             with open(args.data_path) as f:
                 data = json.load(f)
-            eval_results = preference_inference(
-                model, data["eval"], args.eval_batch_size
-            )
+            with torch.no_grad():
+                model.eval()
+                eval_results = preference_inference(
+                    model, data["eval"], args.eval_batch_size
+                )
             with open(args.pred_path, "w") as f:
                 json.dump(eval_results, f)
 

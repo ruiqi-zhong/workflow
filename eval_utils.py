@@ -137,7 +137,27 @@ def evaluate_pred_path(pred_path):
         ]
         pred_scores = np.mean(pred_scores_l, axis=0)
 
-    orig_scores = [p["orig_d"]["target"] for p in preds]
+    orig_scores = [p["orig_d"].get("target") for p in preds]
+    selected_idxes = [i for i, x in enumerate(orig_scores) if x is not None]
+    if len(selected_idxes) < 2:
+        result_dict = {
+            "accuracy": 0,
+            "auc": 0,
+            "rmse": 0,
+            "spearman_corr": 0,
+            "spearman_p-value": 0,
+            "optimal_acc": 0,
+            "optimal_threshold": 0,
+            "discrete_pred_label": [],
+            "threshold_tuned_discrete_pred_label": [],
+            "pred_scores": [],
+            "gold_scores": [],
+        }
+        return result_dict
+
+    orig_scores = [orig_scores[i] for i in selected_idxes]
+    pred_scores = [pred_scores[i] for i in selected_idxes]
+
     discrete_gold_label = [1 if s > 0.5 else 0 for s in orig_scores]
     discrete_pred_label = [1 if s > 0.5 else 0 for s in pred_scores]
     optimal_acc, optimal_threshold, optimal_discrete_pred_label = 0, 0, None
