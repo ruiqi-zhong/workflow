@@ -153,6 +153,13 @@ if __name__ == "__main__":
                 exit(0)
         os.mkdir(training_run_name)
     else:
+        if args.pred_dir is None:
+            if args.model_init_path is not None:
+                args.pred_dir = (
+                    f"{args.model_init_path.replace('/', '_')}_{args.data_name}"
+                )
+            else:
+                args.pred_dir = f"{args.model_init_name}_{args.data_name}"
         save_dir = os.path.join("preds", args.pred_dir)
         if os.path.exists(save_dir):
             if args.overwrite_output_dir:
@@ -303,7 +310,7 @@ if __name__ == "__main__":
         test_prompts,
         temperature=args.temperature,
         n=args.n_samples,
-        bsize=args.eval_batch_size,
+        bsize=eval_batch_size,
     )
     all_results = []
     for result_dict, demonstration, orig_d in zip(
