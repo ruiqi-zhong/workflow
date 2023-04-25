@@ -52,7 +52,9 @@ def fit_bit(model):
 
 
 print("Using %d GPUs." % torch.cuda.device_count())
-mount_dir = "mount/"
+mount_dir = "/model_mount/"
+if not os.path.exists(mount_dir):
+    mount_dir = "mount/"
 
 if __name__ == "__main__":
 
