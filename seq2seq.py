@@ -20,29 +20,12 @@ import json
 import argparse
 from inference import sample_batched
 from transformers.trainer_callback import TrainerCallback
+import random
 
 
 def print_device_place(model):
     for parameters in model.parameters():
         print(parameters.device)
-
-
-def parallelize_across_device(model):
-    num_heads = len(model.encoder.block)
-    num_device = torch.cuda.device_count()
-    other_device_alloc = num_heads // num_device + 1
-    first_device = num_heads - (num_device - 1) * other_device_alloc
-    device_map = {}
-    cur = 0
-    end = max(cur + first_device, 1)
-    device_map[0] = list(range(cur, end))
-    cur = end
-    for i in range(1, num_device):
-        end = min(cur + other_device_alloc, num_heads)
-        device_map[i] = list(range(cur, end))
-        cur += other_device_alloc
-    print("device_map", device_map)
-    model.parallelize(device_map)
 
 
 def fit_bit(model):
@@ -115,8 +98,13 @@ if __name__ == "__main__":
 
     parser.add_argument("--eval_steps", type=int, default=None)
     parser.add_argument("--pred_dir", type=str, default=None)
+    parser.add_argument("--seed", type=int, default=0)
 
     args, unknown = parser.parse_known_args()
+
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
 
     model_init_path = args.model_init_path
     if model_init_path is None:
@@ -139,11 +127,11 @@ if __name__ == "__main__":
     if not args.no_train:
         if args.training_run_name is None:
             if args.model_init_path is not None:
-                args.training_run_name = (
-                    f"{args.model_init_path.replace('/', '_')}_{args.data_name}"
-                )
+                args.training_run_name = f"{args.model_init_path.replace('/', '_')}_{args.data_name}_{args.seed}"
             else:
-                args.training_run_name = f"{args.model_init_name}_{args.data_name}"
+                args.training_run_name = (
+                    f"{args.model_init_name}_{args.data_name}_{args.seed}"
+                )
 
         training_run_name = models_dir + args.training_run_name
         if os.path.exists(training_run_name):
@@ -157,11 +145,9 @@ if __name__ == "__main__":
     else:
         if args.pred_dir is None:
             if args.model_init_path is not None:
-                args.pred_dir = (
-                    f"{args.model_init_path.replace('/', '_')}_{args.data_name}"
-                )
+                args.pred_dir = f"{args.model_init_path.replace('/', '_')}_{args.data_name}_{args.seed}"
             else:
-                args.pred_dir = f"{args.model_init_name}_{args.data_name}"
+                args.pred_dir = f"{args.model_init_name}_{args.data_name}_{args.seed}"
         save_dir = os.path.join("preds", args.pred_dir)
         if os.path.exists(save_dir):
             if args.overwrite_output_dir:
@@ -202,11 +188,14 @@ if __name__ == "__main__":
     # tokenizer_path = 't5-small'
 
     print("loading model from %s" % model_init_path)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_init_path)
+    model = AutoModelForSeq2SeqLM.from_pretrained(
+        model_init_path, device_map="balanced"
+    )
     model = model.to(torch.bfloat16)
 
     # parallelize across devices via device placement
-    parallelize_across_device(model)
+    # parallelize_across_device(model)
+    # model.parallelize(device_map="balanced")
 
     # only finetune the bias and norm layers
     # fit_bit(model)
@@ -269,6 +258,7 @@ if __name__ == "__main__":
             gradient_accumulation_steps=gradient_accumulation_steps,
             save_steps=save_steps,
             eval_steps=args.eval_steps,
+            seed=args.seed,
         )
         data_collator = get_seq2seq_collator(model_tokenizer)
 

@@ -289,22 +289,24 @@ def train_and_eval(
         },
     ]
 
-    # optimizer = AdamW(optimizer_grouped_parameters, lr=5e-5)
-    # if num_steps is None:
-    #     num_steps = max(num_steps, total_datapoints // train_bsize * 3)
-    # scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, num_steps)
-
-    optimizer = Adafactor(
-        model.parameters(),
-        scale_parameter=True,
-        relative_step=True,
-        warmup_init=True,
-        lr=5e-5,
-    )
-    # scheduler = AdafactorSchedule(optimizer)
+    optimizer = AdamW(optimizer_grouped_parameters, lr=5e-5)
+    if num_steps is None:
+        total_datapoints = len(train_data_dicts)
+        num_steps = max(num_steps, total_datapoints // train_bsize * 3)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=min(num_steps, 2000), num_training_steps=num_steps
     )
+
+    # optimizer = Adafactor(
+    #     model.parameters(),
+    #     scale_parameter=True,
+    #     warmup_init=True,
+    #     lr=5e-5,
+    # )
+    # scheduler = AdafactorSchedule(optimizer)
+    # scheduler = get_linear_schedule_with_warmup(
+    #     optimizer, num_warmup_steps=min(num_steps, 2000), num_training_steps=num_steps
+    # )
 
     best_performance = 0
     pbar = tqdm.trange(num_steps * accumulate)

@@ -1,12 +1,17 @@
 from itertools import accumulate
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq, Seq2SeqTrainingArguments, Seq2SeqTrainer
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSeq2SeqLM,
+    DataCollatorForSeq2Seq,
+    Seq2SeqTrainingArguments,
+    Seq2SeqTrainer,
+)
 import torch
 import numpy as np
 from torch.utils.data import Dataset
 
 
 class PromptCompletionDataset(Dataset):
-
     def __init__(self, prompt_completion_list, model_tokenizer, random_seed=0):
         num = len(prompt_completion_list)
         self.prompt_completion_list = prompt_completion_list
@@ -21,18 +26,31 @@ class PromptCompletionDataset(Dataset):
     def __getitem__(self, idx):
         idx = self.ixes[idx]
         prompt_completion = self.prompt_completion_list[idx]
-        prompt, completion = prompt_completion['prompt'], prompt_completion['completion']
+        prompt, completion = (
+            prompt_completion["prompt"],
+            prompt_completion["completion"],
+        )
 
-        return {"input_ids":self.tokenizer(prompt)["input_ids"], "labels":self.tokenizer(completion)["input_ids"]}
+        return {
+            "input_ids": self.tokenizer(prompt)["input_ids"],
+            "labels": self.tokenizer(completion)["input_ids"],
+        }
 
 
 def get_seq2seq_training_args(
-        training_run_name, warmup_steps=2000, max_steps=10000, 
-        train_batch_size=32, eval_batch_size=32, 
-        gradient_accumulation_steps=1, save_steps=1000,
-        eval_steps=100,
-        deepspeed_json_path=None, evaluation_strategy='steps', optim='adafactor'
-    ):
+    training_run_name,
+    warmup_steps=2000,
+    max_steps=10000,
+    train_batch_size=32,
+    eval_batch_size=32,
+    gradient_accumulation_steps=1,
+    save_steps=1000,
+    eval_steps=100,
+    deepspeed_json_path=None,
+    evaluation_strategy="steps",
+    optim="adafactor",
+    seed=0,
+):
     return Seq2SeqTrainingArguments(
         training_run_name,
         evaluation_strategy=evaluation_strategy,
@@ -47,7 +65,8 @@ def get_seq2seq_training_args(
         save_steps=save_steps,
         push_to_hub=False,
         optim=optim,
-        deepspeed=deepspeed_json_path
+        deepspeed=deepspeed_json_path,
+        seed=seed,
     )
 
 
