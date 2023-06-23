@@ -89,6 +89,8 @@ if __name__ == "__main__":
 
     if args.model_size is not None:
         model_init_path = f"../llama_weights_hf/llama_{args.model_size}B/"
+        if not os.path.exists(model_init_path):
+            model_init_path = f"../../model_mount/llama_{args.model_size}B/"
     else:
         model_init_path = args.model_init_path
     actual_bsize = 16
@@ -104,9 +106,9 @@ if __name__ == "__main__":
     eval_batch_size = train_batch_size
     gradient_accumulation_steps = actual_bsize // train_batch_size
     print("gradient accumulation steps", gradient_accumulation_steps)
-    save_steps = args.save_steps
     no_train = args.no_train
     eval_steps = args.eval_steps * gradient_accumulation_steps
+    save_steps = args.save_steps * gradient_accumulation_steps
     temperature = args.temperature
     n_samples = args.n_samples
     data_name = args.data_name
