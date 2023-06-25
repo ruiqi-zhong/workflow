@@ -1,9 +1,46 @@
 # workflow
 
-
 ## Disclaimer
 
 If your experiments produce wrong results because there is a bug in my code, it's not my responsibility. 
+
+# SCF cluster
+
+To get the example code running, run
+```
+sbatch -p jsteinhardt -q normal -w balrog --gres=gpu:1 simple_example.sh
+```
+
+In the simple_example.sh, we are fine-tuning a model with the following command, where
+
+```
+python3 seq2seq.py --model_init_path t5-small --data_name data --eval_steps 500 --save_steps 1000 --max_steps 10001
+```
+where the initialization is t5-small, the fine-tuning data is in mount/data/data.json , eval_step means we are evaluating the model every 500 steps, saving the model every 1000 steps, and training the model for 100001 steps. You can see more ways to use an argument by running
+
+```
+python3 seq2seq.py -h
+```
+
+The data format is a .json file containing a dictionary 
+```
+{'train': [{'prompt': '<prompt>', 'completion': '<completion>'}, ...], 'eval': [{...}, {...}]}
+```
+Only the key ```'prompt'``` and ```'completion'``` are required for each dictionary to make fine-tuning to work. The file I provided contains other info for logging purposes. The provided dataset is a toy seq2seq problem of adding 1 to every number.
+
+After running the above commands, you will find the model's prediction on the evaluation set and the model checkpoints (model weights) in the folder ```mount/models/t5-small_data_0/```
+
+Please complete the following exercise:
+- looking into the prediction files, e.g., ```'mount/models/t5-small_data_0/temperature=0.00_n=1_step=0.json'```, calculate the accuracy of the model's prediction at each step and plot an accuracy.
+- creating another toy seq2seq task of "reversing 8 digits". Create a training and eval set and fine-tune a t5-small model based on your created dataset.
+
+
+Tip: You can directly activate my enviornment ```conda activate /scratch/users/ruiqi-zhong/conda/envs/qlora```, which already has everything installed. So you do not need to change the header of ```simple_example.sh```
+
+
+
+
+# Hofvarpnir Cluster
 
 ## Onboard 
 
