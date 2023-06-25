@@ -31,13 +31,11 @@ Only the key ```'prompt'``` and ```'completion'``` are required for each diction
 After running the above commands, you will find the model's prediction on the evaluation set and the model checkpoints (model weights) in the folder ```mount/models/t5-small_data_0/```
 
 Please complete the following exercise:
-- looking into the prediction files, e.g., ```'mount/models/t5-small_data_0/temperature=0.00_n=1_step=0.json'```, calculate the accuracy of the model's prediction at each step and plot an accuracy.
+- looking into the prediction files, e.g., ```'mount/models/t5-small_data_0/temperature=0.00_n=1_step=0.json'```, calculate the accuracy of the model's prediction at each step and plot the accuracy curve (how accuracy changes as training proceeds) using ```matplotlib``` (look up on line and use Claude to understand how to use it).
 - creating another toy seq2seq task of "reversing 8 digits". Create a training and eval set and fine-tune a t5-small model based on your created dataset.
 
 
 Tip: You can directly activate my enviornment ```conda activate /scratch/users/ruiqi-zhong/conda/envs/qlora```, which already has everything installed. So you do not need to change the header of ```simple_example.sh```
-
-
 
 
 # Hofvarpnir Cluster
