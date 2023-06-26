@@ -90,7 +90,7 @@ if __name__ == "__main__":
     if args.model_size is not None:
         model_init_path = f"../llama_weights_hf/llama_{args.model_size}B/"
         if not os.path.exists(model_init_path):
-            model_init_path = f"../../model_mount/llama_{args.model_size}B/"
+            model_init_path = f"../model_mount/llama_{args.model_size}B/"
     else:
         model_init_path = args.model_init_path
     actual_bsize = 16
