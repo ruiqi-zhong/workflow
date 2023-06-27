@@ -35,7 +35,7 @@ Please complete the following exercise:
 - creating another toy seq2seq task of "reversing 8 digits". Create a training and eval set and fine-tune a t5-small model based on your created dataset.
 
 
-Tip: You can directly activate my enviornment ```conda activate /scratch/users/ruiqi-zhong/conda/envs/qlora```, which already has everything installed. So you do not need to change the header of ```simple_example.sh```
+Tip: You can directly activate my enviornment ```conda activate /scratch/users/ruiqi-zhong/mini/envs/1223seq2seq/```, which already has everything installed. So you do not need to change the header of ```simple_example.sh```
 
 
 # Hofvarpnir Cluster
