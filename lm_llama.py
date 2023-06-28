@@ -63,7 +63,11 @@ def smart_tokenizer_and_embedding_resize(
 
 
 print("Using %d GPUs." % torch.cuda.device_count())
-mount_dir = "mount/"
+hofvarpnir_mount = "../model_mount/models/"
+if os.path.exists(hofvarpnir_mount):
+    mount_dir = hofvarpnir_mount
+else:
+    mount_dir = "mount/"
 
 if __name__ == "__main__":
 
@@ -112,7 +116,7 @@ if __name__ == "__main__":
     temperature = args.temperature
     n_samples = args.n_samples
     data_name = args.data_name
-    data_path = mount_dir + f"data/{data_name}.json"
+    data_path = f"mount/data/{data_name}.json"
 
     model = AutoModelForCausalLM.from_pretrained(
         model_init_path, device_map="balanced"
