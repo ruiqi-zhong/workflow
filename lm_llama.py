@@ -63,7 +63,7 @@ def smart_tokenizer_and_embedding_resize(
 
 
 print("Using %d GPUs." % torch.cuda.device_count())
-hofvarpnir_mount = "model_mount/"
+hofvarpnir_mount = "/model_mount/"
 if os.path.exists(hofvarpnir_mount):
     mount_dir = hofvarpnir_mount
 else:
