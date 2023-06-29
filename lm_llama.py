@@ -63,7 +63,7 @@ def smart_tokenizer_and_embedding_resize(
 
 
 print("Using %d GPUs." % torch.cuda.device_count())
-hofvarpnir_mount = "../model_mount/models/"
+hofvarpnir_mount = "model_mount/"
 if os.path.exists(hofvarpnir_mount):
     mount_dir = hofvarpnir_mount
 else:
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     if args.model_size is not None:
         model_init_path = f"../llama_weights_hf/llama_{args.model_size}B/"
         if not os.path.exists(model_init_path):
-            model_init_path = f"../model_mount/llama_{args.model_size}B/"
+            model_init_path = f"{hofvarpnir_mount}llama_{args.model_size}B/"
     else:
         model_init_path = args.model_init_path
     actual_bsize = 16
