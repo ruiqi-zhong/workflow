@@ -65,7 +65,10 @@ def get_parser():
     parser.add_argument("--train_batch_size", type=int, default=16)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument(
-        "--save_steps", type=int, default=None, help="save the model every save_steps"
+        "--save_steps",
+        type=int,
+        default=1000000,
+        help="save the model every save_steps",
     )
     parser.add_argument(
         "--temperature",
@@ -315,15 +318,21 @@ def run(args, unknown=None):
         open(save_path, "w"),
     )
 
+    return {
+        "model": model,
+        "tokenizer": tokenizer,
+        "all_results": all_results,
+        "training_run_name": training_run_name,
+        "args": vars(args),
+    }
+
 
 def run_w_kwargs(**kwargs):
     parser = get_parser()
     args = parser.parse_args([])
     for k, v in kwargs.items():
         args.__dict__[k] = v
-    print("running with args:")
-    print(args)
-    run(args, [])
+    return run(args, [])
 
 
 if __name__ == "__main__":
