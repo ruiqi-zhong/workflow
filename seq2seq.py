@@ -1,26 +1,28 @@
-import os
-
-os.environ["CUDA_HOME"] = "/usr/local/cuda"
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSeq2SeqLM,
-    DataCollatorForSeq2Seq,
-    Seq2SeqTrainingArguments,
-    Seq2SeqTrainer,
-)
-import torch
-import numpy as np
-from torch.utils.data import Dataset
+import random
+from transformers.trainer_callback import TrainerCallback
+from inference import sample_batched
+import argparse
+import json
 from trainer_utils import (
     PromptCompletionDataset,
     get_seq2seq_training_args,
     get_seq2seq_collator,
 )
-import json
-import argparse
-from inference import sample_batched
-from transformers.trainer_callback import TrainerCallback
-import random
+import numpy as np
+import torch
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSeq2SeqLM,
+    Seq2SeqTrainer,
+)
+import os
+from argparse import Namespace
+
+os.environ["CUDA_HOME"] = "/usr/local/cuda"
+print("Using %d GPUs." % torch.cuda.device_count())
+mount_dir = "/model_mount/"
+if not os.path.exists(mount_dir):
+    mount_dir = "/scratch/users/ruiqi-zhong/workflow/mount/"
 
 
 def print_device_place(model):
@@ -34,13 +36,7 @@ def fit_bit(model):
             parameters.requires_grad = False
 
 
-print("Using %d GPUs." % torch.cuda.device_count())
-mount_dir = "/model_mount/"
-if not os.path.exists(mount_dir):
-    mount_dir = "mount/"
-
-if __name__ == "__main__":
-
+def get_parser():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -100,8 +96,16 @@ if __name__ == "__main__":
     parser.add_argument("--pred_dir", type=str, default=None)
     parser.add_argument("--seed", type=int, default=0)
 
-    args, unknown = parser.parse_known_args()
+    return parser
 
+
+def get_args():
+    parser = get_parser()
+    args, unknown = parser.parse_known_args()
+    return args, unknown
+
+
+def run(args, unknown=None):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
@@ -178,7 +182,6 @@ if __name__ == "__main__":
     no_train = args.no_train
     if args.eval_steps is None:
         args.eval_steps = args.max_steps // num_epochs
-    eval_steps = args.eval_steps
     temperature = args.temperature
     n_samples = args.n_samples
 
@@ -192,16 +195,6 @@ if __name__ == "__main__":
         model_init_path, device_map="balanced"
     )
     model = model.to(torch.bfloat16)
-
-    # parallelize across devices via device placement
-    # parallelize_across_device(model)
-    # model.parallelize(device_map="balanced")
-
-    # only finetune the bias and norm layers
-    # fit_bit(model)
-    # the below lines print reasonable results
-    # for name, parameters in model.named_parameters():
-    #     print(name, parameters.shape, parameters.device, parameters.requires_grad)
 
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
     tokenizer.model_max_length = 1024
@@ -321,3 +314,28 @@ if __name__ == "__main__":
         all_results,
         open(save_path, "w"),
     )
+
+
+def run_w_kwargs(**kwargs):
+    parser = get_parser()
+    args = parser.parse_args([])
+    for k, v in kwargs.items():
+        args.__dict__[k] = v
+    print("running with args:")
+    print(args)
+    run(args, [])
+
+
+if __name__ == "__main__":
+    args, unknown = get_args()
+    # testing running with kwargs
+    run_w_kwargs(
+        model_init_path=args.model_init_path,
+        data_name=args.data_name,
+        eval_steps=args.eval_steps,
+        save_steps=args.save_steps,
+        max_steps=args.max_steps,
+        overwrite_output_dir=args.overwrite_output_dir,
+    )
+    # testing running with args
+    run(args, unknown)
