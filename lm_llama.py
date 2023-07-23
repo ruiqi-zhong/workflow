@@ -70,7 +70,6 @@ else:
     mount_dir = "mount/"
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--model_size", type=int, default=None)
@@ -84,7 +83,9 @@ if __name__ == "__main__":
     parser.add_argument("--eval_steps", type=int, default=5000)
     parser.add_argument("--data_name", type=str, default=None)
     parser.add_argument(
-        "--model_init_path", type=str, default="../llama_weights_hf/koala_13b_v2/"
+        "--model_init_path",
+        type=str,
+        default="/scratch/users/ruiqi-zhong/llama_weights_hf/koala_13b_v2/",
     )
     parser.add_argument("--max_target_length", type=int, default=5)
     parser.add_argument("--eval_first", action="store_true")
@@ -92,7 +93,9 @@ if __name__ == "__main__":
     args, unknown = parser.parse_known_args()
 
     if args.model_size is not None:
-        model_init_path = f"../llama_weights_hf/llama_{args.model_size}B/"
+        model_init_path = (
+            f"/scratch/users/ruiqi-zhong/llama_weights_hf/llama_{args.model_size}B/"
+        )
         if not os.path.exists(model_init_path):
             model_init_path = f"{hofvarpnir_mount}llama_{args.model_size}B/"
     else:
@@ -122,12 +125,7 @@ if __name__ == "__main__":
         model_init_path, device_map="balanced"
     ).to(FLOAT_FORMAT)
     print("model loaded")
-    training_run_name = (
-        models_dir
-        + model_init_path.replace("../llama_weights_hf/", "").replace("/", "")
-        + "-"
-        + data_name
-    )
+    training_run_name = models_dir + f"llama_{args.model_size}" + "-" + data_name
     print("saving result to %s" % training_run_name)
     if os.path.exists(training_run_name):
         #  os.system("rm -rf %s" % training_run_name)
